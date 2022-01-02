@@ -1,0 +1,3 @@
+select * where {
+  wd:Q42 wdt:P106 ?occupation
+}

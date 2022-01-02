@@ -27,9 +27,13 @@ object Main extends CommandIOApp(
    .use { client => f(FollowRedirect(5)(client)) } 
 
  def main: Opts[IO[ExitCode]] =
-   (Info.infoCommand orElse Validate.validateCommand).map {
+   (Info.infoCommand orElse 
+    Validate.validateCommand orElse
+    Sparql.sparqlCommand 
+   ).map {
         case ic: Info => runWithClient(ic.run)
         case vc: Validate => runWithClient(vc.run)
+        case sq: Sparql => runWithClient(sq.run)
    }
 
 }

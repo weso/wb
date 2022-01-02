@@ -1,0 +1,23 @@
+Info: prefix xsd: <http://www.w3.org/2001/XMLSchema#> 
+prefix wd:  <http://gndtest.wiki.opencura.com/entity/>
+prefix wdt: <http://gndtest.wiki.opencura.com/prop/direct/>
+prefix ui:  <http://www.w3.org/ns/ui#>
+prefix :    <https://doku.wikibase.wiki/schema/>
+
+start = @:GND_Work
+
+:GND_Work {
+ wdt:P2  [ wd:Q1 ]         ; # instance of
+ wdt:P3 @:Work           ; # entity type
+ wdt:P6 xsd:string        ; # Work - preferred title
+ wdt:P7 xsd:string *      ; # Work - variant title
+ wdt:P8 @:CatalogingLevel ; # Cataloging level
+ wdt:P9 @:Author     ; # First author
+ wdt:P10 xsd:string ;  # Date of publication
+}
+
+:Work IRI 
+
+:CatalogingLevel IRI
+
+:Author IRI
