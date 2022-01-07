@@ -16,3 +16,11 @@ lazy val wb = (project in file("."))
   ),
   run / fork := true
  )
+
+
+/* lazy val docs = project 
+  .in(file("wb-docs")) // important: it must not be docs/
+  .enablePlugins(MdocPlugin, DocusaurusPlugin) 
+
+*/  
+

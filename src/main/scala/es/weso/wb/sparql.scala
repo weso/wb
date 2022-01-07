@@ -16,23 +16,28 @@ import org.http4s.MediaType
 
 case class Sparql(
  query: Query, 
- wikibase: Wikibase, 
  queryResultFormat: QueryResultFormat,
- verbose:  VerboseLevel) {
+ wikibaseRef: WikibaseRef,
+ wikibasesPath: WikibasesPath,
+ verbose:  VerboseLevel) extends WBCommand {
 
-  def run(client: Client[IO]): IO[ExitCode] = for {
+def run(ctx: Context): IO[ExitCode] = for {
+  wikibase <- Wikibase.getWikibase(wikibaseRef, wikibasesPath.path)
+  r <- wikibase.sparqlEndpoint match {
+    case None => IO.raiseError(NoSparqlEndpoint(wikibase))
+    case Some(endpointUri) => for {
     queryStr <- query match {
       case QueryPath(path) => getContents(path)
     }
     request = Request[IO](
-      uri = wikibase
-            .sparqlEndpoint
+      uri = endpointUri
             .withQueryParam("query",queryStr))
             .addHeader(Accept(MediaType.application.`sparql-results+xml`))
-    str <- client.expect[String](request)
+    str <- ctx.client.expect[String](request)
     _ <- IO.println(s"Result\n$str")
-  } yield ExitCode.Success
-
+   } yield ExitCode.Success
+  }
+ } yield r
 }
 
 object Sparql {
@@ -40,8 +45,9 @@ object Sparql {
  val sparqlCommand: Opts[Sparql] =
     Opts.subcommand("sparql", "Run SPARQL query") {
       (Query.query, 
-       Wikibase.wikibase, 
        QueryResultFormat.queryResultFormat, 
+       Wikibase.wikibase, 
+       WikibasesPath.path,
        Verbose.verbose
       ).mapN(Sparql.apply)
  }

@@ -11,6 +11,7 @@ import org.apache.jena.graph.NodeFactory
 import java.util.function.Consumer
 
 object ShExJena {
+ 
  def validate(
   rdf: RDFAsJenaModel, 
   shexStr: String, 

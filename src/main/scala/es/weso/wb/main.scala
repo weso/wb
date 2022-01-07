@@ -2,6 +2,7 @@ package es.weso.wb
 import com.monovore.decline._
 import com.monovore.decline.effect._
 import cats.effect._
+import cats.implicits._
 import Info._
 import org.http4s.ember.client._
 import org.http4s.client._
@@ -20,20 +21,18 @@ object Main extends CommandIOApp(
          |""".stripMargin.trim,
 ) {
 
- def runWithClient(f: Client[IO] => IO[ExitCode]): IO[ExitCode] = 
+ def runWithContext(wbc: WBCommand): IO[ExitCode] = 
    EmberClientBuilder
    .default[IO]
    .build
-   .use { client => f(FollowRedirect(5)(client)) } 
+   .use { 
+     client => wbc.run(Context(FollowRedirect(5)(client))) 
+   }
+
+ val wbCommand: Opts[WBCommand] = 
+   Info.infoCommand orElse Validate.validateCommand orElse Sparql.sparqlCommand
 
  def main: Opts[IO[ExitCode]] =
-   (Info.infoCommand orElse 
-    Validate.validateCommand orElse
-    Sparql.sparqlCommand 
-   ).map {
-        case ic: Info => runWithClient(ic.run)
-        case vc: Validate => runWithClient(vc.run)
-        case sq: Sparql => runWithClient(sq.run)
-   }
+   wbCommand.map{ case wbc => runWithContext(wbc) }
 
 }

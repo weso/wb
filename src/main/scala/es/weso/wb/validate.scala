@@ -24,13 +24,15 @@ import es.weso.utils.FileUtils._
 case class Validate(
   schemaRef: EntitySchema, 
   entityId: EntityId, 
-  wikibase: Wikibase, 
   shape: Option[String],
   engine: ShExEngine,
   resultFormat: ResultFormat,
-  verbose: VerboseLevel) {
+  wikibaseRef: WikibaseRef,
+  wikibasesPath: WikibasesPath,
+  verbose: VerboseLevel
+  ) extends WBCommand {
 
- def resolveSchema(client: Client[IO], verbose: VerboseLevel): IO[Schema] = schemaRef match {
+ def resolveSchema(client: Client[IO], wikibase: Wikibase, verbose: VerboseLevel): IO[Schema] = schemaRef match {
    case EntitySchemaRef(sid) => wikibase.findSchema(sid.toString, client, verbose)
    case EntitySchemaPath(path) => for {
      schemaStr <- getContents(path) // IO.blocking { Files.readAllLines(path, Charset.forName("UTF-8")).asScala.mkString("\n") } 
@@ -38,25 +40,29 @@ case class Validate(
    } yield schema  
  }
 
- def resolveSchemaStr(client: Client[IO], verbose: VerboseLevel): IO[String] = schemaRef match {
+ def resolveSchemaStr(client: Client[IO], wikibase: Wikibase, verbose: VerboseLevel): IO[String] = schemaRef match {
    case EntitySchemaRef(sid) => wikibase.findSchemaStr(sid.toString, client, verbose)
    case EntitySchemaPath(path) => getContents(path)
  }
 
- def run(client: Client[IO]): IO[ExitCode] = engine match {
-    case ShExSEngine => runShExS(client)
-    case Jena => runShExJena(client)
- }
+ def run(ctx: Context): IO[ExitCode] = for {
+   wikibase <- Wikibase.getWikibase(wikibaseRef, wikibasesPath.path)
+   r <- engine match {
+    case ShExSEngine => runShExS(ctx.client, wikibase)
+    case Jena => runShExJena(ctx.client, wikibase)
+   }
+  } yield r
+   
 
- def runShExS(client: Client[IO]): IO[ExitCode] = { 
+ def runShExS(client: Client[IO], wikibase: Wikibase): IO[ExitCode] = { 
   
-  val shapeMapStr = "<" + wikibase.entityTemplate + entityId + ">@" + (shape match {
+  val shapeMapStr = "<" + wikibase.entityTemplate.getOrElse("") + entityId + ">@" + (shape match {
      case None => "start"
      case Some(s) => s
   })
  
   for {
-    schema <- resolveSchema(client, verbose)
+    schema <- resolveSchema(client, wikibase, verbose)
     rdfStr <- wikibase.findEntity(entityId, client, InfoMode.Raw, verbose)
     res1 <- RDFAsJenaModel.fromString(rdfStr, "Turtle", None)
     res2 <- RDFAsJenaModel.empty
@@ -78,14 +84,16 @@ case class Validate(
   } yield ExitCode.Success
  }
 
- def runShExJena(client: Client[IO]): IO[ExitCode] = for {
+ def runShExJena(client: Client[IO], wikibase: Wikibase): IO[ExitCode] = wikibase.entityTemplate match {
+   case None => IO.raiseError(ErrorNoTemplate(wikibase))
+   case Some(et) => for {
    rdfStr <- wikibase.findEntity(entityId, client, InfoMode.Raw, verbose)
    res1 <- RDFAsJenaModel.fromString(rdfStr, "Turtle", None)
    res2 <- RDFAsJenaModel.empty
    report <- (res1,res2).tupled.use {
     case (rdf,builder) => for {
-      schema <- resolveSchemaStr(client, verbose)
-      node = wikibase.entityTemplate + entityId
+      schema <- resolveSchemaStr(client, wikibase, verbose)
+      node = et + entityId
       r <- ShExJena.validate(rdf, schema, node, shape)
      } yield r 
    }
@@ -93,7 +101,7 @@ case class Validate(
    str <- ShExJena.report2Str(report)
    _ <- IO.println(str)
  } yield ExitCode.Success  
-
+ }
 }
 
 object Validate {
@@ -102,11 +110,13 @@ object Validate {
     Opts.subcommand("validate", "Validate an entity with an entity schema") {
       (EntitySchema.entitySchema, 
        EntityId.entityId, 
-       Wikibase.wikibase, 
        ShapeOpt.shape, 
        ShExEngine.shexEngine, 
        ResultFormat.resultFormat,       
-       Verbose.verbose).mapN(Validate.apply)
+       Wikibase.wikibase, 
+       WikibasesPath.path,
+       Verbose.verbose,
+       ).mapN(Validate.apply)
  }
  
 }
