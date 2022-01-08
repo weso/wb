@@ -20,12 +20,16 @@ import EntitySchema._
 import java.nio.file.Paths
 import java.nio.file.Files
 import es.weso.utils.FileUtils._
+import es.weso.wikibaserdf.WikibaseRDF
+import Verbose._
+import es.weso.rdf.nodes.IRI
 
 case class Validate(
   schemaRef: EntitySchema, 
   entityId: EntityId, 
   shape: Option[String],
   engine: ShExEngine,
+  mode: ValidateMode,
   resultFormat: ResultFormat,
   wikibaseRef: WikibaseRef,
   wikibasesPath: WikibasesPath,
@@ -63,25 +67,56 @@ case class Validate(
  
   for {
     schema <- resolveSchema(client, wikibase, verbose)
-    rdfStr <- wikibase.findEntity(entityId, client, InfoMode.Raw, verbose)
-    res1 <- RDFAsJenaModel.fromString(rdfStr, "Turtle", None)
-    res2 <- RDFAsJenaModel.empty
-    result <- (res1,res2).tupled.use {
+    resolvedSchema <- ResolvedSchema.resolve(schema,None)
+    shapeMap <- fromES(ShapeMap.fromCompact(shapeMapStr, schema.base, schema.prefixMap).leftMap(_.toList.mkString("\n")))
+    r <- mode match {
+      case ValidateMode.Simple => for {
+       rdfStr <- wikibase.findEntity(entityId, client, InfoMode.Raw, verbose)
+       res1 <- RDFAsJenaModel.fromString(rdfStr, "Turtle", None)
+       res2 <- RDFAsJenaModel.empty
+       result <- (res1,res2).tupled.use {
         case (rdf,builder) => for {
+          rdfPrefixMap <- rdf.getPrefixMap
+          fixedShapeMap <- ShapeMap.fixShapeMap(shapeMap, rdf, rdfPrefixMap, schema.prefixMap)
+          r <- Validator.validate(resolvedSchema, fixedShapeMap, rdf, builder, verbose.toBoolean )
+        } yield r
+       }
+      } yield result
+      case ValidateMode.Sparql => wikibase.sparqlEndpoint match {
+        case None => IO.raiseError(NoSparqlEndpoint(wikibase))
+        case Some(endpointUri) => {
+        RDFAsJenaModel.empty.flatMap(_.use {
+          case builder => for {
+            rdf <- Endpoint.fromString(endpointUri.toString)
+            rdfPrefixMap <- rdf.getPrefixMap
+            fixedShapeMap <- ShapeMap.fixShapeMap(shapeMap, rdf, rdfPrefixMap, schema.prefixMap)
+            r <- Validator.validate(resolvedSchema, fixedShapeMap, rdf, builder, verbose.toBoolean )           
+          } yield r
+        })
+       }
+      }
+      case ValidateMode.Cached => wikibase.sparqlEndpoint match {
+        case None => IO.raiseError(NoSparqlEndpoint(wikibase))
+        case Some(endpointUri) => {
+         for {
+          res1 <- WikibaseRDF.fromEndpoint(IRI(endpointUri.toString), WikibaseRDF.wikidataPrefixMap)
+          res2 <- RDFAsJenaModel.empty
+          result <- (res1,res2).tupled.use {
+            case (rdf, builder) => for {
              rdfPrefixMap <- rdf.getPrefixMap
-             resolvedSchema <- ResolvedSchema.resolve(schema,None)
-             shapeMap <- fromES(ShapeMap.fromCompact(shapeMapStr, schema.base, schema.prefixMap).leftMap(_.toList.mkString("\n")))
              fixedShapeMap <- ShapeMap.fixShapeMap(shapeMap, rdf, rdfPrefixMap, schema.prefixMap)
-             r <- Validator.validate(resolvedSchema, fixedShapeMap, rdf, builder, verbose.toBoolean )
-             resultShapeMap <- r.toResultShapeMap
-            } yield resultShapeMap
-    } 
-     _ <- IO.println(s"Result ShEx-S validation:")
-     _ <- IO.println(result.serialize(resultFormat.name).fold(
-      err => s"Error serializing ${result} with format ${resultFormat.name}: $err", 
-      identity)
-    )
-  } yield ExitCode.Success
+              r <- Validator.validate(resolvedSchema, fixedShapeMap, rdf, builder, verbose.toBoolean )
+           } yield r
+          }
+         } yield result
+        }
+       }
+    }
+    resultShapeMap <- r.toResultShapeMap
+    _ <- info(s"End of ShEx-S validation", verbose)
+    str <- fromES(resultShapeMap.serialize(resultFormat.name).leftMap(err => s"Error serializing ${resultShapeMap} with format ${resultFormat.name}: $err")) 
+    _ <- IO.println(str)
+   } yield ExitCode.Success
  }
 
  def runShExJena(client: Client[IO], wikibase: Wikibase): IO[ExitCode] = wikibase.entityTemplate match {
@@ -112,6 +147,7 @@ object Validate {
        EntityId.entityId, 
        ShapeOpt.shape, 
        ShExEngine.shexEngine, 
+       ValidateMode.validateMode,
        ResultFormat.resultFormat,       
        Wikibase.wikibase, 
        WikibasesPath.path,
