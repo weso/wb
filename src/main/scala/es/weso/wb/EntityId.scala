@@ -21,16 +21,21 @@ object EntityId {
 
   lazy val entityId: Opts[EntityId] = Opts.option[EntityId](
       long = "entity",
+      metavar = "id",
       short = "e",
-      help = "Entity Id, example: Q42"
+      help = "Entity Id, examples: Q42, P31"
   )
 
   lazy val entitySchemaId: Opts[EntitySchemaId] = 
-    Opts.option[String]("schema", help="Entity schema Id, example: E42")
+    Opts.option[String](
+     "schema", 
+     short = "s",
+     metavar = "E..",
+     help="Entity schema Id, example: E42")
     .mapValidated(s => parseEntitySchema(s) 
      match {
         case Some(v) => v.validNel[String]
-        case None    => "schemaId must begin with P, Q, L or E followed by numbers (example: Q42).".invalidNel
+        case None    => "schema Id must begin with E followed by numbers (example: E42).".invalidNel
      }
     )  
  

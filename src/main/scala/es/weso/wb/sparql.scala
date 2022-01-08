@@ -22,7 +22,7 @@ case class Sparql(
  verbose:  VerboseLevel) extends WBCommand {
 
 def run(ctx: Context): IO[ExitCode] = for {
-  wikibase <- Wikibase.getWikibase(wikibaseRef, wikibasesPath.path)
+  wikibase <- Wikibase.getWikibase(wikibaseRef, wikibasesPath.path, verbose)
   r <- wikibase.sparqlEndpoint match {
     case None => IO.raiseError(NoSparqlEndpoint(wikibase))
     case Some(endpointUri) => for {

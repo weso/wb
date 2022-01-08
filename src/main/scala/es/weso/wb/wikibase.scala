@@ -34,9 +34,11 @@ sealed abstract class WikibaseRef
 case class Wikibase(
   name: Option[String],
   sparqlEndpoint: Option[Uri], 
-  entityTemplate: Option[String],
+  root: Option[Uri],
   schemaTemplate: Option[String]
   ) extends WikibaseRef {
+
+  val entityTemplate = root.map(_.toString + "/entity/")
 
   override def toString = 
     s"Wikibase(name = ${name.getOrElse("")}, endpoint=${sparqlEndpoint.getOrElse("")}, entityTeplate: ${entityTemplate.getOrElse("")}, entitySchemaTemplate=${schemaTemplate.getOrElse("")})"  
@@ -75,7 +77,7 @@ case class Wikibase(
           _ <- info(s"Request: $uri", verbose)
           str <- client.expect[String](uri)
           n = 10
-          _ <- info(s"Raw contents ($n lines): ${str.split('\n').take(n).mkString("\n")}\n...", verbose)
+          _ <- infoVerbose(s"Raw contents ($n lines): ${str.split('\n').take(n).mkString("\n")}\n...", verbose)
           rdfResource <- RDFAsJenaModel.fromString(str, "TURTLE", None)
           builder <- RDFAsJenaModel.empty
           rdfStr <- (rdfResource, builder).tupled.use{ 
@@ -121,7 +123,7 @@ object Wikibase {
     Wikibase(
      name = Some("wikidata"),
      sparqlEndpoint = Some(uri"https://query.wikidata.org/sparql"), 
-     entityTemplate = Some("http://www.wikidata.org/entity/"),
+     root = Some(uri"http://www.wikidata.org"),
      schemaTemplate = Some("https://www.wikidata.org/wiki/Special:EntitySchemaText/")
     )  
 
@@ -159,11 +161,15 @@ object Wikibase {
       uri => Validated.valid(uri)
     )).orNone
 
-  def wbentityTemplate: Opts[Option[String]] = 
+  def wbRoot: Opts[Option[Uri]] = 
     Opts.option[String](
-    "wbentity", 
-    metavar="template", 
-    help = "wikibase entity template. Example: http://www.wikidata.org/entity/").orNone
+    "wbroot", 
+    metavar="uri", 
+    help = "wikibase root. Example: http://www.wikidata.org")
+    .mapValidated(s => Uri.fromString(s).fold(
+      failure => Validated.invalidNel(s"Error parsing URI $s: $failure"), 
+      uri => Validated.valid(uri)
+    )).orNone
 
   def wbentitySchemaTemplate: Opts[Option[String]] = 
     Opts.option[String](
@@ -173,7 +179,7 @@ object Wikibase {
    ).orNone
 
   def wikibaseParts: Opts[Wikibase] =
-    (wbname,wbendpoint,wbentityTemplate,wbentitySchemaTemplate)
+    (wbname,wbendpoint,wbRoot,wbentitySchemaTemplate)
     .tupled
     .mapValidated(s => s match {
       case (None, None, None, None) => "None of the wb parameters has been set".invalidNel
@@ -213,9 +219,15 @@ object Wikibase {
         fa => Left(DecodingFailure(s"Error decoding sparql endpoint. Cannot build URI from string: $str", Nil)), 
         uri => Right(Some(uri)))
       }
-      entityTemplate <- optFieldDecode[String](c,"entity-template")
+      rootStr <- optFieldDecode[String](c,"root")
+      root <- rootStr match { 
+        case None => Right(None)
+        case Some(str) => Uri.fromString(str).fold(
+        fa => Left(DecodingFailure(s"Error decoding root. Cannot build URI from string: $str", Nil)), 
+        uri => Right(Some(uri)))
+      }
       schemaTemplate <- optFieldDecode[String](c,"schema-template")
-    } yield Wikibase(name, sparqlEndpoint, entityTemplate, schemaTemplate)
+    } yield Wikibase(name, sparqlEndpoint, root, schemaTemplate)
   }
  
   def optField[A: Encoder](name: String, m: Option[A]): Option[(String, Json)] = {
@@ -246,18 +258,17 @@ object Wikibase {
     } yield List(wikidata) ++ wikibases
 
   def getContents(path:Path): IO[String] = if (path == null) {
-   println(s"getContents with Null path?")
    IO.pure("[]") 
   } else IO.blocking {
-      Files.readAllLines(path, Charset.forName("UTF-8")).asScala.toList.mkString("\n")
+   Files.readAllLines(path, Charset.forName("UTF-8")).asScala.toList.mkString("\n")
   }.recover {
     case _: NoSuchFileException => "[]"
   }
 
-  def getWikibase(wbr: WikibaseRef, path: Path): IO[Wikibase] = wbr match {
+  def getWikibase(wbr: WikibaseRef, path: Path, verbose: VerboseLevel): IO[Wikibase] = wbr match {
     case wb: Wikibase => IO.pure(wb)
     case wbn: WikibaseByName => for {
-      _ <- IO.println(s"getWikibase by name: $wbn, path: $path")
+      _ <- info(s"getWikibase by name: $wbn, path: $path", verbose)
       wbs <- loadWikibases(path)
       name = wbn.name
       wb <- findByName(name, wbs) match {

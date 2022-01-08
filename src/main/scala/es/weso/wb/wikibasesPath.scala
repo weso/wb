@@ -10,21 +10,13 @@ case class WikibasesPath(path: Path)
 object WikibasesPath{
 
   val name = "wikibases.json"
-  val defaultPath: Path = { 
-     val p = Paths.get(System.getProperty("user.dir") + "/" + name)
-     println(s"Home unset: Path = $p")
-     p
-  }
+  val defaultPath: Path = Paths.get(System.getProperty("user.dir") + "/" + name)
   
   val path : Opts[WikibasesPath] = Opts.option[Path](
      "wikibases-file", 
      metavar="file",
-     help = s"Wikibases configuration file. Default = HOMEDIR/wikibases.json")
+     help = s"Wikibases configuration file. Default = [user.dir]/$name")
     .withDefault(defaultPath)
-    .map(p => { 
-      println(s"Path in wikibases path: $p")
-      WikibasesPath(p)
-     }
-    )
+    .map(WikibasesPath.apply)
     
 }

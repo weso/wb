@@ -16,7 +16,11 @@ object ShExEngine {
   val shexEnginesStr = availableShExEngines.map(_.name).mkString(",")
 
   val shexEngine: Opts[ShExEngine] = 
-      Opts.option[String]("shex-engine", metavar="engine", help = s"ShEx engine. Available engines: ${shexEnginesStr}")
+      Opts.option[String](
+       "shex-engine", 
+       short = "x",
+       metavar="engine", 
+       help = s"ShEx engine. Available engines: ${shexEnginesStr}")
       .mapValidated(s => 
        availableShExEngines.find(_.name.toLowerCase == s.toLowerCase) match {
           case None => Validated.invalidNel(s"Error obtaining schema format. Available values = ${shexEnginesStr}") 

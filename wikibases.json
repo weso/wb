@@ -1,12 +1,12 @@
 [
  { "name": "gndtest", 
    "endpoint": "https://gndtest.wiki.opencura.com/query/sparql", 
-   "entity-template": "http://gndtest.wiki.opencura.com/entity/", 
+   "root": "http://gndtest.wiki.opencura.com", 
    "schema-template": "https://gndtest.wiki.opencura.com/wiki/Special:EntitySchemaText/"
  },
  { "name": "testes", 
    "endpoint": "https://testes.wiki.opencura.com/query/sparql", 
-   "entity-template": "http://testes.wiki.opencura.com/entity/", 
+   "root": "http://testes.wiki.opencura.com", 
    "schema-template": "https://testes.wiki.opencura.com/wiki/Special:EntitySchemaText/"
  }
 ]

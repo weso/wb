@@ -16,8 +16,13 @@ object Main extends CommandIOApp(
   header  =
      s"""|Information about Wikidata or Wikibase instances
          |
-         |Example: wb info --schema E42 
-         |  Prints information about entity schema E42 from Wikidata
+         |Some examples: 
+         | wb info --schema E42 
+         |   Shows information about entity schema E42 from Wikidata
+         |
+         | wb validate --entity Q42 --schema E14
+         |   Validates entity Q42 with entity schema E14
+         |
          |""".stripMargin.trim,
 ) {
 
@@ -30,7 +35,7 @@ object Main extends CommandIOApp(
    }
 
  val wbCommand: Opts[WBCommand] = 
-   Info.infoCommand orElse Validate.validateCommand orElse Sparql.sparqlCommand
+   Info.infoCommand orElse Validate.validateCommand orElse Sparql.sparqlCommand orElse Search.search
 
  def main: Opts[IO[ExitCode]] =
    wbCommand.map{ case wbc => runWithContext(wbc) }

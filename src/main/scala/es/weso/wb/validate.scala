@@ -46,7 +46,7 @@ case class Validate(
  }
 
  def run(ctx: Context): IO[ExitCode] = for {
-   wikibase <- Wikibase.getWikibase(wikibaseRef, wikibasesPath.path)
+   wikibase <- Wikibase.getWikibase(wikibaseRef, wikibasesPath.path, verbose)
    r <- engine match {
     case ShExSEngine => runShExS(ctx.client, wikibase)
     case Jena => runShExJena(ctx.client, wikibase)

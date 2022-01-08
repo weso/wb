@@ -18,7 +18,7 @@ case class Info(
  verbose:  VerboseLevel) extends WBCommand {
 
   override def run(ctx: Context): IO[ExitCode] = for {
-    wikibase <- Wikibase.getWikibase(wikibaseRef, wikibasesPath.path)
+    wikibase <- Wikibase.getWikibase(wikibaseRef, wikibasesPath.path, verbose)
     r <- entityId match {
      case sid: EntitySchemaId => for {
       result <- outFormat match {
@@ -42,8 +42,8 @@ case class Info(
 object Info {
 
  val infoCommand: Opts[Info] =
-    Opts.subcommand("info", "Get info about entity") {
-      (EntityId.entityId, 
+    Opts.subcommand("info", "Get info about entity in RDF") {
+      (EntityId.entityId orElse EntityId.entitySchemaId, 
        SchemaFormat.schemaFormat, 
        InfoMode.infoMode, 
        Wikibase.wikibase, 
