@@ -2,6 +2,7 @@
 // using lib com.monovore::decline-effect::2.2.0
 // using lib es.weso::shex::0.1.108
 // using lib es.weso::srdfjena::0.1.106
+// using lib es.weso::wikibaserdf::0.1.106
 // using lib org.apache.jena:jena-shex:4.3.2
 // using lib org.http4s::http4s-ember-client::1.0.0-M30
 // using lib org.http4s::http4s-circe::1.0.0-M30
