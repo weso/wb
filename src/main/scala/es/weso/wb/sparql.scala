@@ -13,6 +13,7 @@ import Query._
 import org.apache.jena.query.QueryExecution
 import org.http4s.headers._
 import org.http4s.MediaType
+import es.weso.utils.VerboseLevel
 
 case class Sparql(
  query: Query, 

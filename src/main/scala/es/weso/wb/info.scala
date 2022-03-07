@@ -8,6 +8,7 @@ import org.http4s.client._
 import es.weso.rdf.jena._
 import es.weso.shex._
 import es.weso.wb.Verbose._
+import es.weso.utils.VerboseLevel
 
 case class Info(
  entityId: EntityId, 

@@ -23,6 +23,7 @@ import es.weso.utils.FileUtils._
 import es.weso.wikibaserdf.WikibaseRDF
 import Verbose._
 import es.weso.rdf.nodes.IRI
+import es.weso.utils.VerboseLevel
 
 case class Validate(
   schemaRef: EntitySchema, 
@@ -67,7 +68,7 @@ case class Validate(
  
   for {
     schema <- resolveSchema(client, wikibase, verbose)
-    resolvedSchema <- ResolvedSchema.resolve(schema,None)
+    resolvedSchema <- ResolvedSchema.resolve(schema, None, verbose)
     shapeMap <- fromES(ShapeMap.fromCompact(shapeMapStr, schema.base, schema.prefixMap).leftMap(_.toList.mkString("\n")))
     r <- mode match {
       case ValidateMode.Simple => for {
@@ -78,7 +79,7 @@ case class Validate(
         case (rdf,builder) => for {
           rdfPrefixMap <- rdf.getPrefixMap
           fixedShapeMap <- ShapeMap.fixShapeMap(shapeMap, rdf, rdfPrefixMap, schema.prefixMap)
-          r <- Validator.validate(resolvedSchema, fixedShapeMap, rdf, builder, verbose.toBoolean )
+          r <- Validator.validate(resolvedSchema, fixedShapeMap, rdf, builder, verbose)
         } yield r
        }
       } yield result
@@ -90,7 +91,7 @@ case class Validate(
             rdf <- Endpoint.fromString(endpointUri.toString)
             rdfPrefixMap <- rdf.getPrefixMap
             fixedShapeMap <- ShapeMap.fixShapeMap(shapeMap, rdf, rdfPrefixMap, schema.prefixMap)
-            r <- Validator.validate(resolvedSchema, fixedShapeMap, rdf, builder, verbose.toBoolean )           
+            r <- Validator.validate(resolvedSchema, fixedShapeMap, rdf, builder, verbose)           
           } yield r
         })
        }
@@ -105,7 +106,7 @@ case class Validate(
             case (rdf, builder) => for {
              rdfPrefixMap <- rdf.getPrefixMap
              fixedShapeMap <- ShapeMap.fixShapeMap(shapeMap, rdf, rdfPrefixMap, schema.prefixMap)
-              r <- Validator.validate(resolvedSchema, fixedShapeMap, rdf, builder, verbose.toBoolean )
+              r <- Validator.validate(resolvedSchema, fixedShapeMap, rdf, builder, verbose)
            } yield r
           }
          } yield result
@@ -113,7 +114,7 @@ case class Validate(
        }
     }
     resultShapeMap <- r.toResultShapeMap
-    _ <- info(s"End of ShEx-S validation", verbose)
+    _ <- verbose.info(s"End of ShEx-S validation")
     str <- fromES(resultShapeMap.serialize(resultFormat.name).leftMap(err => s"Error serializing ${resultShapeMap} with format ${resultFormat.name}: $err")) 
     _ <- IO.println(str)
    } yield ExitCode.Success

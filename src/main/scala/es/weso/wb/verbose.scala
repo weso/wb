@@ -4,27 +4,29 @@ import cats.effect._
 import cats.data.Validated._
 import cats.kernel.Order
 import cats.implicits._
+import es.weso.utils.VerboseLevel
+import es.weso.utils.VerboseLevel._
 
-sealed abstract class VerboseLevel {
+/*sealed abstract class VerboseLevel {
   val level: Int
 
   def toBoolean: Boolean = level > 0
-}
+}*/
 
 object Verbose {
-  case object Nothing     extends VerboseLevel { val level = 0 }
-  case object InfoLevel   extends VerboseLevel { val level = 10 } 
-  case object AllMessages extends VerboseLevel { val level = 20 }
+  //case object Nothing     extends VerboseLevel { val level = 0 }
+  //case object InfoLevel   extends VerboseLevel { val level = 10 } 
+  //case object AllMessages extends VerboseLevel { val level = 20 }
 
   val verbose: Opts[VerboseLevel] = Opts.option[String]("verbose", "verbose level. 0 = nothing, 1 = info msgs, 2 = all msgs")
     .mapValidated { n => n.toLowerCase match {
        case "0" => valid(Nothing)
-       case "1" => valid(InfoLevel)
-       case "2" => valid(AllMessages)
+       case "1" => valid(Info)
+       case "2" => valid(Debug)
        case "nothing" => valid(Nothing)
-       case "info" => valid(InfoLevel)
-       case "all" => valid(AllMessages)
-       case _ => invalidNel("Verbose level must be 0-2 or nothing|info|all")
+       case "info" => valid(Info)
+       case "all" => valid(Debug)
+       // case _ => invalidNel[String,VerboseLebel]("Verbose level must be 0-2 or nothing|info|all")
      }
   }.withDefault(Nothing)
 
@@ -35,7 +37,7 @@ object Verbose {
      IO.pure(())
 
   def infoVerbose(msg: String, verbose: VerboseLevel): IO[Unit] = 
-    if (verbose > InfoLevel) {
+    if (verbose > Info) {
      IO.println(msg)
     } else 
      IO.pure(())     

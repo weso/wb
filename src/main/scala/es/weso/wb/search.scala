@@ -11,6 +11,7 @@ import es.weso.wb.Verbose._
 import io.circe._
 import io.circe.parser._
 import org.http4s.circe._
+import es.weso.utils.VerboseLevel
 
 /**
  * This is a wrapper on Wikbase API wbsearchentities: https://www.wikidata.org/w/api.php?action=help&modules=wbsearchentities
